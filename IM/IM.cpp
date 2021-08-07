@@ -39,7 +39,7 @@ void _basic_send_message(SOCKET s, std::string buf, int type = 0) {
 }
 
 void send_message(SOCKET s, std::string buf) {
-	if (buf.length() >= 1023) {
+	if (buf.length() >= 901) {
 		std::string tmp = buf.substr(0, 900);
 		buf = buf.substr(901);
 		_basic_send_message(s, tmp, 1);
@@ -178,9 +178,9 @@ int main(int argc, char** argv) {
 	{
 		sendData = "";
 		std::cin >> sendData;
-		if (sendData == "quit") break;
-		else if (sendData == "save") {
-			puts("Input save path:");
+		if (sendData == "/quit") break;
+		else if (sendData == "/save") {
+			printf("Input save path:");
 			std::string save_path;
 			std::cin >> save_path;
 			FILE* file;
@@ -192,6 +192,17 @@ int main(int argc, char** argv) {
 			fprintf_s(file, "%s", logs.c_str());
 			fclose(file);
 			printf("Successfully save to %s", save_path.c_str());
+			continue;
+		}
+		else if (sendData == "/name") {
+			printf("Please input your name(max length 100):");
+			std::string name;
+			std::cin >> name;
+			if (name.length() > 100) {
+				puts("Length exceeded!");
+				continue;
+			}
+			_basic_send_message(ConnectSocket, name, 4);
 			continue;
 		}
 		system("cls");
