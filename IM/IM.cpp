@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <process.h>
+#include <mswsock.h>
+
 #include <string>
 #include <iostream>
 
@@ -25,27 +27,35 @@
 #define WHITE_BLACK 15
 
 std::string logs;
+FILE* fp;
 
 struct transferStruct {
-	int type; // 0 message 1 set username
+	int type, length; // 0 message 1 set username
 	char data[1024];
 };
 
-void _basic_send_message(SOCKET s, std::string buf, int type = 0) {
+void _basic_send_message(SOCKET s, std::string buf, int type = 0, int length = 0) {
 	transferStruct data;
 	strcpy_s(data.data, sizeof(data.data), buf.c_str());
-	data.type = type;
+	data.type = type; data.length = length;
+	send(s, (const char*)&data, sizeof(data), 0);
+}
+
+void _basic_send_file(SOCKET s, const char *buf, int type = 0, int length = 0) {
+	transferStruct data;
+	memcpy_s(data.data, 1024, buf, length);
+	data.type = type; data.length = length;
 	send(s, (const char*)&data, sizeof(data), 0);
 }
 
 void send_message(SOCKET s, std::string buf) {
 	if (buf.length() >= 901) {
 		std::string tmp = buf.substr(0, 900);
-		buf = buf.substr(901);
+		buf = buf.substr(900);
 		_basic_send_message(s, tmp, 1);
 		while (buf.length() > 1023) {
 			std::string tmp = buf.substr(0, 1023);
-			buf = buf.substr(1024);
+			buf = buf.substr(1023);
 			_basic_send_message(s, tmp, 2);
 		}
 		_basic_send_message(s, buf, 3);
@@ -54,8 +64,29 @@ void send_message(SOCKET s, std::string buf) {
 		_basic_send_message(s, buf);
 	}
 }
+void send_file(SOCKET s, FILE* fp, std::string file_name) {
+	_basic_send_message(s, file_name, 5);
+	char buffer[1024]; int len = 0;
+	while ((len = fread_s(buffer, 1024, 1, 1024, fp))!=0) {
+		printf("%d\n", len);
+		_basic_send_file(s, buffer, 6, len);
+	}
+	_basic_send_file(s, "", 7, 0);
+	/*
+	if (buf.length() > 1023) {
+		while (buf.length() > 1023) {
+			std::string tmp = buf.substr(0, 1023);
+			buf = buf.substr(1023);
+			_basic_send_message(s, tmp, 6);
+		}
+		_basic_send_message(s, buf, 7);
+	}
+	else {
+		_basic_send_message(s, buf, 7);
+	}*/
+}
 
-void output(const char* buf, const int color=7) {
+void output(const char* buf, const int color = 7) {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(hConsole, color);
 	printf("%s", buf);
@@ -80,12 +111,35 @@ unsigned __stdcall receive_message(void* args) {
 			output(data.data);
 			output("\n");
 		}
+		else if (data.type == 5) { // file name
+			printf("Receive file:%s\n", data.data);
+			int ret = fopen_s(&fp, data.data, "wb");
+			if (fp == NULL) {
+				puts("Cannot write file!");
+			}
+		}
+		else if (data.type == 6) {
+			printf("Receive file.\n");
+			if (fp == NULL) {
+				puts("Cannot write file!");
+				continue;
+			}
+			fwrite(data.data, data.length, (size_t)1, fp);
+		}
+		else if (data.type == 7) {
+			printf("Receive file end.\n");
+			if (fp == NULL) {
+				puts("Cannot write file!");
+				continue;
+			}
+			fwrite(data.data, data.length, (size_t)1, fp);
+			fclose(fp);
+		}
 		else {
 			output(data.data);
 			output("\n");
 		}
 	}
-	// delete[] recvData;
 	closesocket(*sClient);
 	exit(0);
 	return 0;
@@ -203,6 +257,23 @@ int main(int argc, char** argv) {
 				continue;
 			}
 			_basic_send_message(ConnectSocket, name, 4);
+			continue;
+		}
+		else if (sendData == "/file") {
+			printf("Please input your file path:");
+			std::string file_path, file_name, file;
+			FILE* fp;
+			char tmp_buf[1024] = { 0 };
+			std::cin >> file_path;
+			printf("Please input your file name:");
+			std::cin >> file_name;
+			int ret = fopen_s(&fp, file_path.c_str(), "rb");
+			if (ret) {
+				puts("Open file error!");
+				continue;
+			}
+			send_file(ConnectSocket, fp, file_name);
+			fclose(fp);
 			continue;
 		}
 		system("cls");
