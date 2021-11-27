@@ -14,9 +14,6 @@
 #include <process.h>
 #include <mswsock.h>
 
-#include <string>
-#include <iostream>
-
 #pragma comment(lib, "Ws2_32.lib")
 
 #define DEFAULT_BUFLEN 512
@@ -26,7 +23,7 @@
 #define BLACK_PINK 192
 #define WHITE_BLACK 15
 
-std::string logs;
+char logs[1024000];
 FILE* fp;
 
 struct transferStruct {
@@ -34,9 +31,9 @@ struct transferStruct {
 	char data[1024];
 };
 
-void _basic_send_message(SOCKET s, std::string buf, int type = 0, int length = 0) {
+void _basic_send_message(SOCKET s, char* buf, int type = 0, int length = 0) {
 	transferStruct data;
-	strcpy_s(data.data, sizeof(data.data), buf.c_str());
+	strcpy_s(data.data, sizeof(data.data), buf);
 	data.type = type; data.length = length;
 	send(s, (const char*)&data, sizeof(data), 0);
 }
@@ -48,23 +45,26 @@ void _basic_send_file(SOCKET s, const char *buf, int type = 0, int length = 0) {
 	send(s, (const char*)&data, sizeof(data), 0);
 }
 
-void send_message(SOCKET s, std::string buf) {
-	if (buf.length() >= 901) {
-		std::string tmp = buf.substr(0, 900);
-		buf = buf.substr(900);
-		_basic_send_message(s, tmp, 1);
-		while (buf.length() > 1023) {
-			std::string tmp = buf.substr(0, 1023);
-			buf = buf.substr(1023);
-			_basic_send_message(s, tmp, 2);
-		}
-		_basic_send_message(s, buf, 3);
-	}
-	else {
-		_basic_send_message(s, buf);
-	}
+//void send_message(SOCKET s, std::string buf) {
+//	if (buf.length() >= 901) {
+//		std::string tmp = buf.substr(0, 900);
+//		buf = buf.substr(900);
+//		_basic_send_message(s, tmp, 1);
+//		while (buf.length() > 1023) {
+//			std::string tmp = buf.substr(0, 1023);
+//			buf = buf.substr(1023);
+//			_basic_send_message(s, tmp, 2);
+//		}
+//		_basic_send_message(s, buf, 3);
+//	}
+//	else {
+//		_basic_send_message(s, buf);
+//	}
+//}
+void send_message(SOCKET s, char *buf) {
+	_basic_send_message(s, buf);
 }
-void send_file(SOCKET s, FILE* fp, std::string file_name) {
+void send_file(SOCKET s, FILE* fp, char* file_name) {
 	_basic_send_message(s, file_name, 5);
 	char buffer[1024]; int len = 0;
 	while ((len = fread_s(buffer, 1024, 1, 1024, fp))!=0) {
@@ -72,25 +72,18 @@ void send_file(SOCKET s, FILE* fp, std::string file_name) {
 		_basic_send_file(s, buffer, 6, len);
 	}
 	_basic_send_file(s, "", 7, 0);
-	/*
-	if (buf.length() > 1023) {
-		while (buf.length() > 1023) {
-			std::string tmp = buf.substr(0, 1023);
-			buf = buf.substr(1023);
-			_basic_send_message(s, tmp, 6);
-		}
-		_basic_send_message(s, buf, 7);
-	}
-	else {
-		_basic_send_message(s, buf, 7);
-	}*/
+}
+
+void addLog(const char* buf) {
+	if (strlen(logs) > 1020000) memset(logs, 0, sizeof(logs));
+	strcat_s(logs, 1020000, buf);
 }
 
 void output(const char* buf, const int color = 7) {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(hConsole, color);
 	printf("%s", buf);
-	logs += buf;
+	addLog(buf);
 }
 
 unsigned __stdcall receive_message(void* args) {
@@ -227,47 +220,43 @@ int main(int argc, char** argv) {
 
 	HANDLE message = (HANDLE)_beginthreadex(NULL, 0, receive_message, &ConnectSocket, 0, 0);
 
-	std::string sendData;
+	char sendData[1025] = { 0 };
 	while (true)
 	{
-		sendData = "";
-		std::cin >> sendData;
-		if (sendData == "/quit") break;
-		else if (sendData == "/save") {
+		memset(sendData, 0, sizeof(sendData));
+		scanf_s("%s", sendData, 1024);
+		if (strcmp(sendData, "/quit") == 0) break;
+		else if (strcmp(sendData, "/save") == 0) {
 			printf("Input save path:");
-			std::string save_path;
-			std::cin >> save_path;
+			char save_path[1025];
+			gets_s(save_path, 1024);
 			FILE* file;
-			int ret = fopen_s(&file, save_path.c_str(), "w");
+			int ret = fopen_s(&file, save_path, "w");
 			if (ret != 0 || file == NULL) {
-				printf("Unable to save to %s, please check.", save_path.c_str());
+				printf("Unable to save to %s, please check.", save_path);
 				continue;
 			}
-			fprintf_s(file, "%s", logs.c_str());
+			fprintf_s(file, "%s", logs);
 			fclose(file);
-			printf("Successfully save to %s", save_path.c_str());
+			printf("Successfully save to %s", save_path);
 			continue;
 		}
-		else if (sendData == "/name") {
+		else if (strcmp(sendData, "/name") == 0) {
 			printf("Please input your name(max length 100):");
-			std::string name;
-			std::cin >> name;
-			if (name.length() > 100) {
-				puts("Length exceeded!");
-				continue;
-			}
+			char name[1025];
+			gets_s(name, 1024);
 			_basic_send_message(ConnectSocket, name, 4);
 			continue;
 		}
-		else if (sendData == "/file") {
+		else if (strcmp(sendData, "/file") == 0) {
 			printf("Please input your file path:");
-			std::string file_path, file_name, file;
+			char file_path[1025] = { 0 }, file_name[1025] = { 0 }, file[1025] = { 0 };
 			FILE* fp;
 			char tmp_buf[1024] = { 0 };
-			std::cin >> file_path;
+			scanf_s("%s", file_path, 1024);
 			printf("Please input your file name:");
-			std::cin >> file_name;
-			int ret = fopen_s(&fp, file_path.c_str(), "rb");
+			scanf_s("%s", file_name, 1024);
+			int ret = fopen_s(&fp, file_path, "rb");
 			if (ret) {
 				puts("Open file error!");
 				continue;
@@ -277,8 +266,8 @@ int main(int argc, char** argv) {
 			continue;
 		}
 		system("cls");
-		std::cout << logs;
-		send_message(ConnectSocket, sendData.c_str());
+		puts(logs);
+		send_message(ConnectSocket, sendData);
 	}
 
 	closesocket(ConnectSocket);
