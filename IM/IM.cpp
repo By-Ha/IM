@@ -26,19 +26,22 @@
 char logs[1024000];
 FILE* fp;
 
-struct transferStruct {
+struct transferStruct
+{
 	int type, length;
 	char data[1024];
 };
 
-void _basic_send_message(SOCKET s, char* buf, int type = 0, int length = 0) {
+void _basic_send_message(SOCKET s, char* buf, int type = 0, int length = 0)
+{
 	transferStruct data;
 	strcpy_s(data.data, sizeof(data.data), buf);
 	data.type = type; data.length = length;
 	send(s, (const char*)&data, sizeof(data), 0);
 }
 
-void _basic_send_file(SOCKET s, const char *buf, int type = 0, int length = 0) {
+void _basic_send_file(SOCKET s, const char *buf, int type = 0, int length = 0)
+{
 	transferStruct data;
 	memcpy_s(data.data, 1024, buf, length);
 	data.type = type; data.length = length;
@@ -61,10 +64,12 @@ void _basic_send_file(SOCKET s, const char *buf, int type = 0, int length = 0) {
 //		_basic_send_message(s, buf);
 //	}
 //}
-void send_message(SOCKET s, char *buf) {
+void send_message(SOCKET s, char *buf)
+{
 	_basic_send_message(s, buf);
 }
-void send_file(SOCKET s, FILE* fp, char* file_name) {
+void send_file(SOCKET s, FILE* fp, char* file_name)
+{
 	_basic_send_message(s, file_name, 5);
 	char buffer[1024]; int len = 0;
 	while ((len = fread_s(buffer, 1024, 1, 1024, fp))!=0) {
@@ -74,44 +79,56 @@ void send_file(SOCKET s, FILE* fp, char* file_name) {
 	_basic_send_file(s, "", 7, 0);
 }
 
-void addLog(const char* buf) {
+void addLog(const char* buf)
+{
 	if (strlen(logs) > 1020000) memset(logs, 0, sizeof(logs));
 	strcat_s(logs, 1020000, buf);
 }
 
-void output(const char* buf, const int color = 7) {
+void output(const char* buf, const int color = 7)
+{
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(hConsole, color);
 	printf("%s", buf);
 	addLog(buf);
 }
 
-unsigned __stdcall receive_message(void* args) {
+unsigned __stdcall receive_message(void* args)
+{
 	SOCKET* sClient = (SOCKET*)args;
 	//char* recvData = new char[1024];
 	transferStruct data;
 	int ret;
 	while (1) {
 		ret = recv(*sClient, (char*)&data, sizeof(data), 0);
-		if (ret < 0) { output("连接已断开...\n", BLACK_PINK); break; }
-		if (data.type == 1) {
+		if (ret < 0) 
+		{ 
+			output("连接已断开...\n", BLACK_PINK);
+			break; 
+		}
+		if (data.type == 1)
+		{
 			output(data.data);
 		}
-		else if (data.type == 2) {
+		else if (data.type == 2)
+		{
 			output(data.data);
 		}
-		else if (data.type == 3) {
+		else if (data.type == 3)
+		{
 			output(data.data);
 			output("\n");
 		}
-		else if (data.type == 5) { // file name
+		else if (data.type == 5)
+		{ // file name
 			printf("Receive file:%s\n", data.data);
 			int ret = fopen_s(&fp, data.data, "wb");
 			if (fp == NULL) {
 				puts("Cannot write file!");
 			}
 		}
-		else if (data.type == 6) {
+		else if (data.type == 6)
+		{
 			printf("Receive file.\n");
 			if (fp == NULL) {
 				puts("Cannot write file!");
@@ -119,7 +136,8 @@ unsigned __stdcall receive_message(void* args) {
 			}
 			fwrite(data.data, data.length, (size_t)1, fp);
 		}
-		else if (data.type == 7) {
+		else if (data.type == 7)
+		{
 			printf("Receive file end.\n");
 			if (fp == NULL) {
 				puts("Cannot write file!");
@@ -128,7 +146,8 @@ unsigned __stdcall receive_message(void* args) {
 			fwrite(data.data, data.length, (size_t)1, fp);
 			fclose(fp);
 		}
-		else {
+		else
+		{
 			output(data.data);
 			output("\n");
 		}
@@ -188,7 +207,8 @@ int main(int argc, char** argv) {
 	ptr = result;
 
 	// Create a SOCKET for connecting to server
-	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
+	for (ptr = result; ptr != NULL; ptr = ptr->ai_next)
+	{
 		// ai_next 下一个DNS解析的IP地址, 如 www.baidu.com -> xxx.xxx.xx.xx yyy.yyy.yy.yy
 		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 		if (ConnectSocket == INVALID_SOCKET) {
@@ -212,7 +232,8 @@ int main(int argc, char** argv) {
 	freeaddrinfo(result);
 	// result 内结构储存空间都由malloc获取 使用此函数释放
 
-	if (ConnectSocket == INVALID_SOCKET) {
+	if (ConnectSocket == INVALID_SOCKET)
+	{
 		printf("Unable to connect to server!\n");
 		WSACleanup();
 		return 1;
@@ -222,13 +243,17 @@ int main(int argc, char** argv) {
 
 	char sendData[1025] = { 0 };
 	getchar(); // clear \n
+
 	while (true)
 	{
 		memset(sendData, 0, sizeof(sendData));
 		gets_s(sendData, 1024);
 		// scanf_s("%[^\n]%*c", sendData, 1024);
-		if (strcmp(sendData, "/quit") == 0) break;
-		else if (strcmp(sendData, "/save") == 0) {
+		if (strcmp(sendData, "/quit") == 0) {
+			break;
+		}
+		else if (strcmp(sendData, "/save") == 0)
+		{
 			printf("Input save path:");
 			char save_path[1025];
 			gets_s(save_path, 1024);
@@ -243,7 +268,8 @@ int main(int argc, char** argv) {
 			printf("Successfully save to %s", save_path);
 			continue;
 		}
-		else if (strcmp(sendData, "/name") == 0) {
+		else if (strcmp(sendData, "/name") == 0)
+		{
 			printf("Please input your name(max length 100):");
 			char name[1025];
 			scanf_s("%s", name, 1024);
@@ -251,7 +277,8 @@ int main(int argc, char** argv) {
 			_basic_send_message(ConnectSocket, name, 4);
 			continue;
 		}
-		else if (strcmp(sendData, "/file") == 0) {
+		else if (strcmp(sendData, "/file") == 0)
+		{
 			printf("Please input your file path:");
 			char file_path[1025] = { 0 }, file_name[1025] = { 0 }, file[1025] = { 0 };
 			FILE* fp;
@@ -260,7 +287,8 @@ int main(int argc, char** argv) {
 			printf("Please input your file name:");
 			scanf_s("%s", file_name, 1024);
 			int ret = fopen_s(&fp, file_path, "rb");
-			if (ret) {
+			if (ret)
+			{
 				puts("Open file error!");
 				continue;
 			}
