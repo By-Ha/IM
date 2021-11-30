@@ -27,7 +27,7 @@ char logs[1024000];
 FILE* fp;
 
 struct transferStruct {
-	int type, length; // 0 message 1 set username
+	int type, length;
 	char data[1024];
 };
 
@@ -221,10 +221,12 @@ int main(int argc, char** argv) {
 	HANDLE message = (HANDLE)_beginthreadex(NULL, 0, receive_message, &ConnectSocket, 0, 0);
 
 	char sendData[1025] = { 0 };
+	getchar(); // clear \n
 	while (true)
 	{
 		memset(sendData, 0, sizeof(sendData));
-		scanf_s("%s", sendData, 1024);
+		gets_s(sendData, 1024);
+		// scanf_s("%[^\n]%*c", sendData, 1024);
 		if (strcmp(sendData, "/quit") == 0) break;
 		else if (strcmp(sendData, "/save") == 0) {
 			printf("Input save path:");
@@ -244,7 +246,8 @@ int main(int argc, char** argv) {
 		else if (strcmp(sendData, "/name") == 0) {
 			printf("Please input your name(max length 100):");
 			char name[1025];
-			gets_s(name, 1024);
+			scanf_s("%s", name, 1024);
+			getchar();
 			_basic_send_message(ConnectSocket, name, 4);
 			continue;
 		}
@@ -263,6 +266,7 @@ int main(int argc, char** argv) {
 			}
 			send_file(ConnectSocket, fp, file_name);
 			fclose(fp);
+			getchar();
 			continue;
 		}
 		system("cls");
